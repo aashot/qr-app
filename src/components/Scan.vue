@@ -7,11 +7,29 @@
       {{ error }}
       <p class="error">{{ error }}</p>
 
-      <p class="decode-result">
-        Last result: <b>{{ result }}</b>
-      </p>
+      <qrcode-stream
+        v-if="!destroyed"
+        @decode="onDecode" 
+        @init="onInit" 
+      />
 
-      <qrcode-stream @decode="onDecode" @init="onInit" />
+      <b-modal 
+        centered
+        id="result-modal"
+        size="xl"
+        :ok-only="true"
+        @ok="reInit"
+      >
+        <p class="decode-result">
+          <b-link 
+            v-if="isResultLink"
+            :href="result"
+          >
+            {{ result }}
+          </b-link>
+          <b v-else>{{ result }}</b>
+        </p>
+      </b-modal>
     </b-tab>
   </div>
 </template>
@@ -19,6 +37,16 @@
 <script>
 import { BIcon, BIconUpcScan } from "bootstrap-vue";
 import { QrcodeStream } from "vue-qrcode-reader";
+
+const isLinkValid = (str) => {
+  const pattern = new RegExp('^(https?:\\/\\/)?'+
+    '((([a-z\\d]([a-z\\d-]*[a-z\\d])*)\\.)+[a-z]{2,}|'+
+    '((\\d{1,3}\\.){3}\\d{1,3}))'+
+    '(\\:\\d+)?(\\/[-a-z\\d%_.~+]*)*'+
+    '(\\?[;&a-z\\d%_.~+=-]*)?'+
+    '(\\#[-a-z\\d_]*)?$','i')
+  return !!pattern.test(str)
+}
 
 export default {
   name: "Scan",
@@ -31,6 +59,7 @@ export default {
     return {
       result: "",
       error: "",
+      isResultLink: false
     };
   },
   mounted() {
@@ -39,8 +68,15 @@ export default {
   methods: {
     onDecode(result) {
       this.result = result;
+      this.$bvModal.show('result-modal')
+      this.isResultLink = isLinkValid(result)
     },
-
+    async reInit() {
+      this.destroyed = true
+      await this.$nextTick()
+      this.destroyed = false
+      this.result = 1
+    },
     async onInit(promise) {
       try {
         await promise;
